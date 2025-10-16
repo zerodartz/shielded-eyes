@@ -1,0 +1,688 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Zectardio 🛡️👀</title>
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        background-color: #121212;
+        color: #ffffff;
+        margin: 0;
+        padding: 10px;
+        box-sizing: border-box;
+      }
+      #instructions {
+        font-size: 14px;
+      }
+      #updates {
+        font-size: 12px;
+        padding-top: 12px;
+      }
+      .container {
+        max-width: 512px;
+        margin: 0 auto;
+        padding: 16px;
+      }
+      h1 {
+        text-align: center;
+        margin-bottom: 10px;
+        font-size: 26px;
+      }
+      a {
+        color: #fffeee;
+      }
+      #canvas-container {
+        display: flex;
+        justify-content: center;
+        margin: 8px;
+        border: 1px solid #ffffff;
+        max-width: 100%;
+        overflow: hidden;
+        border-radius: 16px;
+      }
+      canvas {
+        border: 1px solid #ffffff;
+        max-width: 100%;
+        height: auto;
+        border-radius: 12px;
+      }
+      .controls {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+        margin-bottom: 20px;
+      }
+      .button-container {
+        display: flex;
+        gap: 10px;
+      }
+      button,
+      .button-container label {
+        background-color: #121212;
+        color: #ffffff;
+        border: 2px solid #ffffff;
+        padding: 10px 20px;
+        cursor: pointer;
+        transition: background-color 0.3s;
+        flex: 1;
+        text-align: center;
+        font-size: 14px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 16px;
+      }
+      .button-container input[type='file'] {
+        display: none;
+      }
+      button:hover,
+      .button-container label:hover {
+        background-color: #333333;
+      }
+      .shield-button {
+        flex: 1;
+        padding: 10px;
+        font-size: 14px;
+        cursor: pointer;
+        border: 2px solid #ffffff;
+        background-color: #121212;
+        color: #ffffff;
+        transition: background-color 0.3s;
+      }
+      .shield-button:hover {
+        background-color: #333333;
+      }
+      .shield-button.active {
+        background-color: #444444;
+      }
+      #footer {
+        text-align: center;
+        font-size: 10px;
+      }
+      @media (max-width: 512px) {
+        h1 {
+          font-size: 20px;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <h1>Shield your eyes 🛡️👀</h1>
+      <div class="button-container">
+        <label for="image-upload">🖼️ Import Photo</label>
+        <input type="file" id="image-upload" accept="image/*" />
+        <button id="save-image">Save 🛡️ photo</button>
+      </div>
+      <div id="canvas-container">
+        <canvas id="editor-canvas"></canvas>
+      </div>
+      <div class="controls">
+        <div class="button-container">
+          <button id="add-dark-censor" class="shield-button">🛡️ Shield</button>
+          <button id="add-pixel-censor" class="shield-button">🧱 Pixelate</button>
+          <button id="add-light-censor" class="shield-button">💡 Glow</button>
+        </div>
+      </div>
+      <p id="instructions">HOW:</p>
+      <p id="updates">
+        update_4: Added Pixelated shield option.<br />update_3:
+        Mobile pinch to resize/rotate, glowing bar added.<br />update_2: Mobile
+        save opens in new tab for long‑press save.<br />update_1: All aspect
+        ratios supported.
+      </p>
+    </div>
+    <div id="footer">
+      Made by Zerodartz, 2025 - Report bugs
+      <a href="https://github.com/zerodartz/shielding-eyes/">on GitHub</a><br />
+      <a href="https://zerodartz.github.io/shielding-eyes/beta.html">Try BETA version</a>
+      <p>
+        🦓🛡My other apps:
+        <a href="https://zerodartz.github.io/feelszebraman/zepefy/">Zepe Meme App</a>
+      </p>
+    </div>
+    <script>
+const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+
+// Canvas setup
+let canvas = document.getElementById('editor-canvas');
+let ctx = canvas.getContext('2d');
+let image;
+
+// State
+let rect = {
+  x: 140,
+  y: 170,
+  w: 250,
+  h: 100,
+  rotation: 0,
+  color: 'black',
+  style: 'solid', // 'solid' | 'glow' | 'pixel'
+  border: null,
+  glow: null,
+
+  // Pixel style controls
+  pixelSize: 0, // auto unless set
+  edgeThickness: 0, // auto unless set
+  noiseAmount: 0.6 // deterministic variation 0..1
+};
+
+// Interaction flags
+let isDragging = false;
+let isResizing = false;
+let isRotating = false;
+let startAngle = 0;
+let startDistance = 0;
+let resizeHandle = '';
+
+// Utils
+function constrain(value, min, max) {
+  return Math.max(min, Math.min(value, max));
+}
+function snap(n) {
+  return Math.round(n);
+}
+
+function resizeCanvas() {
+  const container = document.getElementById('canvas-container');
+  const containerWidth = container.clientWidth;
+  const scale = containerWidth / canvas.width;
+  canvas.style.width = `${containerWidth}px`;
+  canvas.style.height = `${canvas.height * scale}px`;
+}
+
+// DOM listeners
+document
+  .getElementById('image-upload')
+  .addEventListener('change', handleImageUpload);
+document
+  .getElementById('add-dark-censor')
+  .addEventListener('click', () => addCensorBar('black'));
+document
+  .getElementById('add-light-censor')
+  .addEventListener('click', () => addCensorBar('white'));
+document
+  .getElementById('add-pixel-censor')
+  .addEventListener('click', () => addCensorBar('pixel'));
+document.getElementById('save-image').addEventListener('click', saveImage);
+
+let tempCanvas = document.createElement('canvas');
+let tempCtx = tempCanvas.getContext('2d');
+
+// Pointer/touch listeners
+canvas.addEventListener('mousedown', handleStart);
+canvas.addEventListener('mousemove', handleMove);
+canvas.addEventListener('mouseup', handleEnd);
+canvas.addEventListener('touchstart', handleStart, { passive: false });
+canvas.addEventListener('touchmove', handleMove, { passive: false });
+canvas.addEventListener('touchend', handleEnd);
+
+// Instructions
+const instructions = document.getElementById('instructions');
+if (isMobile) {
+  instructions.innerHTML =
+    'How: Import photo, tap 1 of the shield button. Drag to move.<br>Use the bottom-right point to resize. Use two fingers to rotate/resize.';
+} else {
+  instructions.innerHTML =
+    'How: Import photo, click 1 of the shield button. Drag to move.<br>Use the top-right striped point to rotate and bottom-right point to resize.';
+}
+
+// Handlers
+function handleImageUpload(e) {
+  const file = e.target.files[0];
+  if (!file || !file.type.startsWith('image/')) {
+    alert('Please upload an image file');
+    return;
+  }
+
+  const reader = new FileReader();
+  reader.onload = function (f) {
+    image = new Image();
+    image.onload = function () {
+      let width, height;
+      if (image.width < image.height) {
+        width = 512;
+        height = 512 * (image.height / image.width);
+      } else {
+        height = 512;
+        width = 512 * (image.width / image.height);
+      }
+
+      canvas.width = width;
+      canvas.height = height;
+      tempCanvas.width = width;
+      tempCanvas.height = height;
+
+      resizeCanvas();
+      ctx.drawImage(image, 0, 0, canvas.width, canvas.height);
+      redraw();
+    };
+    image.src = f.target.result;
+  };
+  reader.readAsDataURL(file);
+}
+
+function setPixelAutos() {
+  // Make blocks square and sized off width by default
+  rect.pixelSize = Math.max(6, Math.floor(rect.w * 0.1)); // 10% width
+  rect.edgeThickness = Math.floor(rect.pixelSize * 2); // 2 rows of big pixels
+}
+
+function addCensorBar(mode) {
+  if (mode === 'white') {
+    rect.style = 'glow';
+    rect.color = 'black';
+    rect.border = '8px #fda80d';
+    rect.glow = '0 0 24px #fda80d';
+  } else if (mode === 'pixel') {
+    rect.style = 'pixel';
+    rect.color = 'black';
+    rect.border = null;
+    rect.glow = null;
+    setPixelAutos();
+    rect.noiseAmount = 0.6;
+  } else {
+    rect.style = 'solid';
+    rect.color = 'black';
+    rect.border = null;
+    rect.glow = null;
+  }
+
+  document
+    .getElementById('add-dark-censor')
+    .classList.toggle('active', mode === 'black');
+  document
+    .getElementById('add-light-censor')
+    .classList.toggle('active', mode === 'white');
+  document
+    .getElementById('add-pixel-censor')
+    .classList.toggle('active', mode === 'pixel');
+
+  redraw();
+}
+
+function saveImage() {
+  // Render to offscreen buffer first
+  redraw(true);
+
+  const handleBlob = (blob) => {
+    if (!blob) {
+      alert('Could not create image. Try a smaller image.');
+      redraw();
+      return;
+    }
+    const blobURL = URL.createObjectURL(blob);
+
+    if (isMobile) {
+      // Try to open a new tab synchronously to keep user gesture
+      const newTab = window.open(blobURL, '_blank');
+
+      if (!newTab || newTab.closed || typeof newTab.closed === 'undefined') {
+        // Popup blocked. Fallback to inline preview with long‑press instruction.
+        showInlinePreview(blobURL);
+      } else {
+        // Best effort: release URL after tab loads (some iOS won’t fire load reliably).
+        setTimeout(() => URL.revokeObjectURL(blobURL), 5000);
+      }
+    } else {
+      // Desktop download path
+      const link = document.createElement('a');
+      link.href = blobURL;
+      link.download = 'shielded-eyes-pfp.png';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      setTimeout(() => URL.revokeObjectURL(blobURL), 1000);
+    }
+
+    // Redraw main canvas after exporting
+    redraw();
+  };
+
+  // Prefer toBlob over toDataURL on iOS
+  if (tempCanvas.toBlob) {
+    tempCanvas.toBlob(handleBlob, 'image/png', 1.0);
+  } else {
+    // Rare fallback
+    const dataURL = tempCanvas.toDataURL('image/png');
+    if (isMobile) {
+      const newTab = window.open(dataURL, '_blank');
+      if (!newTab) showInlinePreview(dataURL);
+    } else {
+      const link = document.createElement('a');
+      link.href = dataURL;
+      link.download = 'shielded-eyes-pfp.png';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    }
+    redraw();
+  }
+}
+
+function showInlinePreview(url) {
+  // Create a simple fullscreen overlay with the exported image.
+  let overlay = document.getElementById('save-overlay');
+  if (!overlay) {
+    overlay = document.createElement('div');
+    overlay.id = 'save-overlay';
+    overlay.style.cssText =
+      'position:fixed;inset:0;display:flex;flex-direction:column;' +
+      'align-items:center;justify-content:center;background:rgba(0,0,0,0.9);' +
+      'z-index:99999;padding:16px;gap:12px;text-align:center;color:#fff;';
+    const msg = document.createElement('div');
+    msg.style.cssText = 'font-size:14px;line-height:1.4;';
+    msg.innerHTML =
+      'Long‑press the image to Save/Share.<br/>' +
+      'If a popup was blocked, enable popups for this site.';
+    const img = document.createElement('img');
+    img.id = 'save-overlay-img';
+    img.style.cssText = 'max-width:100%;height:auto;border-radius:12px;';
+    const closeBtn = document.createElement('button');
+    closeBtn.textContent = 'Close';
+    closeBtn.style.cssText =
+      'background:#121212;color:#fff;border:2px solid #fff;' +
+      'padding:10px 16px;border-radius:10px;cursor:pointer;';
+    closeBtn.onclick = () => {
+      URL.revokeObjectURL(img.src);
+      overlay.remove();
+    };
+    overlay.appendChild(msg);
+    overlay.appendChild(img);
+    overlay.appendChild(closeBtn);
+    document.body.appendChild(overlay);
+  }
+  const img = document.getElementById('save-overlay-img');
+  img.src = url;
+}
+
+function handleStart(e) {
+  e.preventDefault();
+  const touches = e.touches ? e.touches : [e];
+  const { canvasX, canvasY } = getCanvasCoordinates(
+    touches[0].clientX,
+    touches[0].clientY
+  );
+
+  if (isMobile) {
+    if (touches.length === 1) {
+      if (isInsideRect(canvasX, canvasY)) {
+        isDragging = true;
+      } else if (isBottomRightCorner(canvasX, canvasY)) {
+        isResizing = true;
+      }
+    } else if (touches.length === 2) {
+      const { canvasX: x2, canvasY: y2 } = getCanvasCoordinates(
+        touches[1].clientX,
+        touches[1].clientY
+      );
+      startAngle = Math.atan2(y2 - canvasY, x2 - canvasX) - rect.rotation;
+      startDistance = Math.hypot(y2 - canvasY, x2 - canvasX);
+      isRotating = true;
+    }
+  } else {
+    const handle = getResizeHandle(canvasX, canvasY);
+    if (handle !== null) {
+      if (handle === 'rotate') {
+        isRotating = true;
+        startAngle =
+          Math.atan2(
+            canvasY - (rect.y + rect.h / 2),
+            canvasX - (rect.x + rect.w / 2)
+          ) - rect.rotation;
+      } else {
+        isResizing = true;
+        resizeHandle = handle;
+      }
+    } else if (isInsideRect(canvasX, canvasY)) {
+      isDragging = true;
+    }
+  }
+}
+
+function handleMove(e) {
+  e.preventDefault();
+  const touches = e.touches ? e.touches : [e];
+  const { canvasX, canvasY } = getCanvasCoordinates(
+    touches[0].clientX,
+    touches[0].clientY
+  );
+
+  if (isMobile) {
+    if (isDragging) {
+      rect.x = constrain(canvasX - rect.w / 2, 0, canvas.width - rect.w);
+      rect.y = constrain(canvasY - rect.h / 2, 0, canvas.height - rect.h);
+    } else if (isRotating && touches.length === 2) {
+      const { canvasX: x2, canvasY: y2 } = getCanvasCoordinates(
+        touches[1].clientX,
+        touches[1].clientY
+      );
+      const angle = Math.atan2(y2 - canvasY, x2 - canvasX) - startAngle;
+      rect.rotation = constrain(angle, -Math.PI / 2 + 0.15, Math.PI / 2 - 0.15);
+
+      const distance = Math.hypot(y2 - canvasY, x2 - canvasX);
+      const scale = distance / startDistance;
+      rect.w *= scale;
+      rect.h *= scale;
+      startDistance = distance;
+
+      if (rect.style === 'pixel') setPixelAutos();
+    } else if (isResizing) {
+      resizeRect(canvasX, canvasY);
+    }
+  } else {
+    if (isDragging) {
+      rect.x = constrain(canvasX - rect.w / 2, 0, canvas.width - rect.w);
+      rect.y = constrain(canvasY - rect.h / 2, 0, canvas.height - rect.h);
+    } else if (isResizing && resizeHandle === 'bottom-right') {
+      resizeRect(canvasX, canvasY);
+    } else if (isRotating) {
+      const angle =
+        Math.atan2(
+          canvasY - (rect.y + rect.h / 2),
+          canvasX - (rect.x + rect.w / 2)
+        ) - startAngle;
+      rect.rotation = constrain(angle, -Math.PI / 2 + 0.15, Math.PI / 2 - 0.15);
+    }
+  }
+
+  redraw();
+}
+
+function handleEnd() {
+  isDragging = false;
+  isResizing = false;
+  isRotating = false;
+  redraw();
+}
+
+function resizeRect(x, y) {
+  const centerX = rect.x + rect.w / 2;
+  const centerY = rect.y + rect.h / 2;
+  const dx = x - centerX;
+  const dy = y - centerY;
+  const angle = Math.atan2(dy, dx) - rect.rotation;
+  const dist = 2 * Math.sqrt(dx * dx + dy * dy);
+
+  let newW = Math.abs(dist * Math.cos(angle));
+  let newH = Math.abs(dist * Math.sin(angle));
+
+  newW = constrain(newW, 30, canvas.width);
+  newH = constrain(newH, 10, canvas.height);
+
+  rect.x = centerX - newW / 2;
+  rect.y = centerY - newH / 2;
+  rect.w = newW;
+  rect.h = newH;
+
+  if (rect.style === 'pixel') setPixelAutos();
+}
+
+function isBottomRightCorner(x, y) {
+  const handleSize = 20;
+  const cos = Math.cos(rect.rotation);
+  const sin = Math.sin(rect.rotation);
+  const centerX = rect.x + rect.w / 2;
+  const centerY = rect.y + rect.h / 2;
+
+  const resizeX = centerX + (rect.w / 2) * cos - (rect.h / 2) * sin;
+  const resizeY = centerY + (rect.w / 2) * sin + (rect.h / 2) * cos;
+
+  return Math.abs(x - resizeX) < handleSize && Math.abs(y - resizeY) < handleSize;
+}
+
+function getResizeHandle(x, y) {
+  const handleSize = 20;
+  const cos = Math.cos(rect.rotation);
+  const sin = Math.sin(rect.rotation);
+  const centerX = rect.x + rect.w / 2;
+  const centerY = rect.y + rect.h / 2;
+
+  if (!isMobile) {
+    // Top-right for rotation
+    const rotateX = centerX + (rect.w / 2) * cos - (-rect.h / 2) * sin;
+    const rotateY = centerY + (rect.w / 2) * sin + (-rect.h / 2) * cos;
+    if (Math.abs(x - rotateX) < handleSize && Math.abs(y - rotateY) < handleSize) {
+      canvas.style.cursor = 'crosshair';
+      return 'rotate';
+    }
+
+    // Bottom-right for resize
+    const resizeX = centerX + (rect.w / 2) * cos - (rect.h / 2) * sin;
+    const resizeY = centerY + (rect.w / 2) * sin + (rect.h / 2) * cos;
+    if (Math.abs(x - resizeX) < handleSize && Math.abs(y - resizeY) < handleSize) {
+      canvas.style.cursor = 'nwse-resize';
+      return 'bottom-right';
+    }
+
+    canvas.style.cursor = 'default';
+    return null;
+  }
+
+  canvas.style.cursor = 'default';
+  return null;
+}
+
+function isInsideRect(x, y) {
+  const centerX = rect.x + rect.w / 2;
+  const centerY = rect.y + rect.h / 2;
+  const dx = x - centerX;
+  const dy = y - centerY;
+  const angle = Math.atan2(dy, dx) - rect.rotation;
+  const dist = Math.sqrt(dx * dx + dy * dy);
+
+  return (
+    Math.abs(dist * Math.cos(angle)) < rect.w / 2 &&
+    Math.abs(dist * Math.sin(angle)) < rect.h / 2
+  );
+}
+
+function getCanvasCoordinates(clientX, clientY) {
+  const canvasRect = canvas.getBoundingClientRect();
+  const scaleX = canvas.width / canvasRect.width;
+  const scaleY = canvas.height / canvasRect.height;
+  const canvasX = (clientX - canvasRect.left) * scaleX;
+  const canvasY = (clientY - canvasRect.top) * scaleY;
+  return { canvasX, canvasY };
+}
+
+// Rendering
+function redraw(temp = false) {
+  const context = temp ? tempCtx : ctx;
+
+  context.clearRect(0, 0, canvas.width, canvas.height);
+  if (image) {
+    context.drawImage(image, 0, 0, canvas.width, canvas.height);
+  }
+
+  context.save();
+  context.translate(rect.x + rect.w / 2, rect.y + rect.h / 2);
+  context.rotate(rect.rotation);
+
+  // Draw pixelated shadow FIRST (behind the main bar)
+// Draw pixelated layers FIRST (behind)
+if (rect.style === 'pixel') {
+  context.save();
+  drawPixelatedShield(context, rect.w, rect.h, rect);
+  context.restore();
+}
+
+// Draw main bar ON TOP (100% opacity)
+context.fillStyle = rect.color;
+context.fillRect(-rect.w / 2, -rect.h / 2, rect.w, rect.h);
+
+  // Glow effect (if needed)
+  if (rect.style === 'glow') {
+    context.save();
+    context.shadowColor = '#fda80d';
+    context.shadowBlur = 24;
+    context.fillRect(-rect.w / 2, -rect.h / 2, rect.w, rect.h);
+    context.restore();
+    if (rect.border) {
+      context.strokeStyle = 'white';
+      context.lineWidth = 8;
+      context.strokeRect(-rect.w / 2, -rect.h / 2, rect.w, rect.h);
+    }
+  }
+
+  // Draw handles (same as before)
+  if (!temp) {
+    const handleSize = 16;
+    if (!isMobile) {
+      const rotateX = rect.w / 2;
+      const rotateY = -rect.h / 2;
+      context.fillStyle = 'white';
+      context.beginPath();
+      context.arc(rotateX, rotateY, handleSize, 0, Math.PI * 2);
+      context.fill();
+      context.strokeStyle = 'red';
+      context.lineWidth = 2;
+      context.beginPath();
+      context.arc(rotateX, rotateY, handleSize - 5, 0.2 * Math.PI, 1.8 * Math.PI);
+      context.stroke();
+    }
+    const resizeX = rect.w / 2;
+    const resizeY = rect.h / 2;
+    context.fillStyle = 'white';
+    context.strokeStyle = 'black';
+    context.beginPath();
+    context.arc(resizeX, resizeY, handleSize, 0, Math.PI * 2);
+    context.fill();
+    context.stroke();
+  }
+
+  context.restore();
+}
+
+function drawPixelatedShield(context, w, h, r) {
+  // Calculate fixed extension amounts based on bar size
+  const baseExtension = Math.min(w, h) * 0.2; // 15% of the smaller dimension
+  const minExtension = 8; // Minimum 8px extension
+  const extension = Math.max(minExtension, baseExtension);
+  
+  // Layer 1: Subtle background (fixed extension on all sides)
+  context.fillStyle = 'rgba(0,0,0,0.2)';
+  const bg1W = w + extension;
+  const bg1H = h + extension;
+  context.fillRect(-bg1W/2, -bg1H/2, bg1W, bg1H);
+  
+  // Layer 2: Horizontal extension (fixed pixels wider)
+  context.fillStyle = 'rgba(0,0,0,0.3)';
+  const horizW = w + extension * 1; // Same extension on both sides
+  const horizH = h;
+  context.fillRect(-horizW/2, -horizH/2, horizW, horizH);
+  
+  // Layer 3: Vertical extension (fixed pixels taller)  
+  context.fillStyle = 'rgba(0,0,0,0.3)';
+  const vertW = w;
+  const vertH = h + extension * 1; // Same extension on top/bottom
+  context.fillRect(-vertW/2, -vertH/2, vertW, vertH);
+}
+// Initial draw
+resizeCanvas();
+redraw();
+    </script>
+  </body>
+</html>
