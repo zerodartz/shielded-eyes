@@ -1,11 +1,11 @@
-# Shielding eyes web app
-Simple web app to censor your eyes on profile pictures. Zcash and Zashi style.
+# Shielded eyes web app
+Simple web app to censor your eyes on profile pictures. Zcash and Zashi style. Zectardio - Zetardio.
 
-App deployed here: https://zerodartz.github.io/shielding-eyes/
+App deployed here: https://zerodartz.github.io/shielded-eyes/
 
 Just upload photo, add shielding black bar, resize and rotate. Then save if you are happy with photo.
 
-<img src="https://raw.githubusercontent.com/zerodartz/shielding-eyes/main/media/guide-video-thumb.jpg" width="400">
+<img src="https://raw.githubusercontent.com/zerodartz/shielded-eyes/main/media/guide-video-thumb.jpg" width="400">
 
 Demo guide video of how to use app:
 
