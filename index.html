@@ -112,18 +112,18 @@
     <div class="container">
       <h1>Shield your eyes 🛡️👀</h1>
       <div class="button-container">
-        <label for="image-upload">🖼️ Import Photo</label>
+        <label for="image-upload">🖼️Insert Photo</label>
         <input type="file" id="image-upload" accept="image/*" />
-        <button id="save-image">Save 🛡️ photo</button>
+        <button id="save-image">🛡️Save</button>
       </div>
       <div id="canvas-container">
         <canvas id="editor-canvas"></canvas>
       </div>
       <div class="controls">
         <div class="button-container">
-          <button id="add-dark-censor" class="shield-button">🛡️ Shield</button>
-          <button id="add-pixel-censor" class="shield-button">🧱 Pixelate</button>
-          <button id="add-light-censor" class="shield-button">💡 Glow</button>
+          <button id="add-dark-censor" class="shield-button">🛡️Shield</button>
+          <button id="add-pixel-censor" class="shield-button">🧱Pixelate</button>
+          <button id="add-light-censor" class="shield-button">💡Glow</button>
         </div>
       </div>
       <p id="instructions">HOW:</p>
@@ -135,11 +135,10 @@
       </p>
     </div>
     <div id="footer">
-      Made by Zerodartz, 2025 - Report bugs
-      <a href="https://github.com/zerodartz/shielding-eyes/">on GitHub</a><br />
-      <a href="https://zerodartz.github.io/shielding-eyes/beta.html">Try BETA version</a>
+      Made by <a href="https://x.com/Zerodartz">Zerodartz</a>, 2025 - Report bugs
+      <a href="https://github.com/zerodartz/shielded-eyes/issues/new">on GitHub</a><br />
       <p>
-        🦓🛡My other apps:
+        🦓🛡Other apps:
         <a href="https://zerodartz.github.io/feelszebraman/zepefy/">Zepe Meme App</a>
       </p>
     </div>
@@ -252,11 +251,11 @@ const instructions = document.getElementById('instructions');
 if (isMobile) {
   instructions.innerHTML =
     'How: Import photo, tap 1 of the shield buttons. Drag to move.<br>' +
-    'Two fingers anywhere on the canvas to rotate/resize. Bottom-right circle to resize.';
+    'Two fingers anywhere on the canvas to rotate/resize. Bottom-right knob to resize.';
 } else {
   instructions.innerHTML =
     'How: Import photo, click 1 of the shield buttons. Drag to move.<br>' +
-    'Use the top-right striped point to rotate and bottom-right point to resize.';
+    'Use the top-right red striped knob to rotate and bottom-right knob to resize.';
 }
 
 // Handlers
